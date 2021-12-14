@@ -1,0 +1,112 @@
+module top_module( 
+    input [254:0] in,
+    output [7:0] out );
+    wire [15:0] ci;
+    wire dontcare;
+    popcount128 adder1 (in [127:0], ci[7:0]);
+    popcount128 adder2 ({1'b0, in [254:128]}, ci[15:8]);
+    adder8bit add (ci[7:0], ci[15:8], out[7:0]);
+endmodule
+////////////////////////////////////////////////////////////////building block start
+module popcount2(
+    input [1:0] in,
+    output [1:0] out );
+    assign out [0] = in[1] ^ in[0];
+    assign out [1] = in[1] & in[0];
+endmodule
+
+module fuladder(
+    input a, b, cin,
+    output sum,
+	output cout );
+    assign sum = a ^ b ^ cin;
+    assign cout = (a & b) | (a & cin) | (b & cin);
+endmodule
+///////////////////////////////////////////////////////////////building block end
+///////////////////////////////////////////////////////////adder start
+module adder2bit(
+    input [1:0] a, b,
+    input cin,
+    output [1:0] sum,
+	output cout );
+    wire ci;
+    fuladder add1(a[0],b[0],cin,sum[0],ci);
+    fuladder add2(a[1],b[1],ci,sum[1],cout);
+endmodule
+module adder4bit(
+    input [3:0] a, b,
+    input cin,
+    output [3:0] sum,
+	output cout );
+    wire ci;
+    adder2bit add1(a[1:0],b[1:0],cin,sum[1:0],ci);
+    adder2bit add2(a[3:2],b[3:2],ci,sum[3:2],cout);
+endmodule
+module adder8bit(
+    input [7:0] a, b,
+    output [7:0] sum);
+    wire ci;
+    wire dontcare;
+    adder4bit add1(a[3:0],b[3:0],1'b0,sum[3:0],ci);
+    adder4bit add2(a[7:4],b[7:4],ci,sum[7:4],dontcare);
+endmodule
+////////////////////////////////////////////////////////adder end
+//////////////////////////////////////////////////////////////////////////////////////more than 2bit popcount start
+module popcount4(
+    input [3:0] in,
+    output [2:0] out);
+    wire [3:0] ci;
+    popcount2 adder1 (in [1:0], ci[1:0]);
+    popcount2 adder2 (in [3:2], ci[3:2]);
+    adder2bit add (ci[1:0], ci[3:2], 1'b0, out[1:0], out[2]);
+endmodule
+
+module popcount8(
+    input [7:0] in,
+    output [3:0] out);
+    wire [5:0] ci;
+    wire dontcare;
+    popcount4 adder1 (in [3:0], ci[2:0]);
+    popcount4 adder2 (in [7:4], ci[5:3]);
+    adder4bit add ({1'b0, ci[2:0]}, {1'b0, ci[5:3]}, 1'b0, out[3:0], dontcare);
+endmodule
+
+module popcount16(
+    input [15:0] in,
+    output [4:0] out);
+    wire [7:0] ci;
+    wire [2:0] dontcare_o;
+    popcount8 adder1 (in [7:0], ci[3:0]);
+    popcount8 adder2 (in [15:8], ci[7:4]);
+    adder8bit add ({4'b0, ci[3:0]}, {4'b0, ci[7:4]}, {dontcare_o, out});
+endmodule
+
+module popcount32(
+    input [31:0] in,
+    output [5:0] out);
+    wire [9:0] ci;
+    wire [1:0] dontcare_o;
+    popcount16 adder1 (in [15:0], ci[4:0]);
+    popcount16 adder2 (in [31:16], ci[9:5]);
+    adder8bit add ({3'b0, ci[4:0]}, {3'b0, ci[9:5]}, {dontcare_o, out});
+endmodule
+
+module popcount64(
+    input [63:0] in,
+    output [6:0] out);
+    wire [11:0] ci;
+    wire dontcare_o;
+    popcount32 adder1 (in [31:0], ci[5:0]);
+    popcount32 adder2 (in [63:32], ci[11:6]);
+    adder8bit add ({2'b0, ci[5:0]}, {2'b0, ci[11:6]}, {dontcare_o, out});
+endmodule
+
+module popcount128(
+    input [127:0] in,
+    output [7:0] out);
+    wire [13:0] ci;
+    popcount64 adder1 (in [63:0], ci[6:0]);
+    popcount64 adder2 (in [127:64], ci[13:7]);
+    adder8bit add ({1'b0, ci[6:0]}, {1'b0, ci[13:7]}, out[7:0]);
+endmodule
+/////////////////////////////////////////////////////////////////////////////////////////more than 2bit popcount end
